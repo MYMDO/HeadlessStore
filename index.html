@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ультралегкий Магазин</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Alpine JS -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans" 
+      x-data="store()" 
+      x-init="initStore()">
+
+    <!-- Навігація -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-indigo-600">МійМагазин</h1>
+            <button @click="isCartOpen = true" class="relative p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition">
+                🛒 <span class="hidden sm:inline ml-1">Кошик</span>
+                <span x-show="cartTotalItems > 0" x-text="cartTotalItems" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full"></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Вітрина товарів -->
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        <div x-show="isLoading" class="text-center py-10 text-gray-500">Завантаження товарів...</div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <template x-for="product in products" :key="product.id">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
+                    <img :src="product.image_url" :alt="product.name" class="w-full h-48 object-cover">
+                    <div class="p-5">
+                        <h2 class="text-lg font-bold mb-1" x-text="product.name"></h2>
+                        <p class="text-gray-500 text-sm mb-4 line-clamp-2" x-text="product.description"></p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xl font-extrabold text-gray-900"><span x-text="product.price"></span> ₴</span>
+                            <button @click="addToCart(product)" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+                                В кошик
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </main>
+
+    <!-- Модальне вікно кошика -->
+    <div x-show="isCartOpen" style="display: none;" class="fixed inset-0 z-50 overflow-hidden" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="isCartOpen = false"></div>
+        <div class="fixed inset-y-0 right-0 pl-10 max-w-full flex">
+            <div class="w-screen max-w-md bg-white shadow-xl flex flex-col">
+                <div class="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+                    <div class="flex items-start justify-between">
+                        <h2 class="text-lg font-medium text-gray-900">Ваш кошик</h2>
+                        <button @click="isCartOpen = false" class="text-gray-400 hover:text-gray-500">✕</button>
+                    </div>
+
+                    <div class="mt-8">
+                        <div class="flow-root">
+                            <ul role="list" class="-my-6 divide-y divide-gray-200">
+                                <template x-for="item in cart" :key="item.id">
+                                    <li class="flex py-6">
+                                        <div class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
+                                            <img :src="item.image_url" class="h-full w-full object-cover object-center">
+                                        </div>
+                                        <div class="ml-4 flex flex-1 flex-col">
+                                            <div>
+                                                <div class="flex justify-between text-base font-medium text-gray-900">
+                                                    <h3 x-text="item.name"></h3>
+                                                    <p class="ml-4"><span x-text="item.price * item.qty"></span> ₴</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex flex-1 items-end justify-between text-sm">
+                                                <p class="text-gray-500">Кількість: <span x-text="item.qty"></span></p>
+                                                <button @click="removeFromCart(item.id)" type="button" class="font-medium text-red-600 hover:text-red-500">Видалити</button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                </template>
+                                <li x-show="cart.length === 0" class="py-6 text-center text-gray-500">Кошик порожній</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Оформлення замовлення -->
+                <div class="border-t border-gray-200 px-4 py-6 sm:px-6" x-show="cart.length > 0">
+                    <div class="flex justify-between text-lg font-medium text-gray-900 mb-4">
+                        <p>Разом до сплати</p>
+                        <p><span x-text="cartTotalPrice"></span> ₴</p>
+                    </div>
+                    
+                    <form @submit.prevent="checkout" class="space-y-3">
+                        <input x-model="customer.name" type="text" required placeholder="Ваше ім'я" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <input x-model="customer.phone" type="tel" required placeholder="Номер телефону" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        
+                        <button type="submit" :disabled="isSubmitting" class="w-full flex justify-center items-center rounded-lg border border-transparent bg-indigo-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700 disabled:bg-gray-400">
+                            <span x-text="isSubmitting ? 'Відправка...' : 'Оформити замовлення'"></span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Логіка додатку -->
+    <script>
+        const SUPABASE_URL = 'https://ixcvjmquidfydeakvzul.supabase.co/';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4Y3ZqbXF1aWRmeWRlYWt2enVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNjczMTMsImV4cCI6MjA5Mzc0MzMxM30.fF5NYxpS21pxbDxKHpebKCb79HVBsKP3s3DsKpF6Hnk';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('store', () => ({
+                products: [],
+                cart:[],
+                isCartOpen: false,
+                isLoading: true,
+                isSubmitting: false,
+                customer: { name: '', phone: '' },
+
+                async initStore() {
+                    // Завантаження товарів з Supabase
+                    const { data, error } = await supabaseClient.from('products').select('*');
+                    if (data) this.products = data;
+                    this.isLoading = false;
+                },
+
+                addToCart(product) {
+                    const existingItem = this.cart.find(item => item.id === product.id);
+                    if (existingItem) {
+                        existingItem.qty++;
+                    } else {
+                        this.cart.push({ ...product, qty: 1 });
+                    }
+                },
+
+                removeFromCart(id) {
+                    this.cart = this.cart.filter(item => item.id !== id);
+                },
+
+                get cartTotalItems() {
+                    return this.cart.reduce((total, item) => total + item.qty, 0);
+                },
+
+                get cartTotalPrice() {
+                    return this.cart.reduce((total, item) => total + (item.price * item.qty), 0);
+                },
+
+                async checkout() {
+                    this.isSubmitting = true;
+                    
+                    // Збереження замовлення в Supabase
+                    const { error } = await supabaseClient.from('orders').insert([{
+                        customer_name: this.customer.name,
+                        customer_phone: this.customer.phone,
+                        items: this.cart,
+                        total_price: this.cartTotalPrice
+                    }]);
+
+                    this.isSubmitting = false;
+
+                    if (error) {
+                        alert('Виникла помилка при оформленні. Спробуйте ще раз.');
+                        console.error(error);
+                    } else {
+                        alert('Дякуємо за замовлення! Наш менеджер скоро зв\'яжеться з вами.');
+                        this.cart =[];
+                        this.customer = { name: '', phone: '' };
+                        this.isCartOpen = false;
+                    }
+                }
+            }));
+        });
+    </script>
+</body>
+</html>
