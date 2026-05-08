@@ -3,104 +3,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ГРАНІТ України Магазин</title>
+    <title>Маркетплейс</title>
+    
+    <!-- Підключення конфігу -->
+    <script src="config.js"></script>
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Alpine JS -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-</head>
-<body class="bg-gray-50 text-gray-800 font-sans" 
-      x-data="store()" 
-      x-init="initStore()">
 
-    <!-- Навігація -->
-    <header class="bg-white shadow-sm sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-indigo-600">ГРАНІТ України</h1>
-            <button @click="isCartOpen = true" class="relative p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition">
-                🛒 <span class="hidden sm:inline ml-1">Кошик</span>
-                <span x-show="cartTotalItems > 0" x-text="cartTotalItems" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full"></span>
-            </button>
+    <style>
+        /* Ховаємо скроллбар для мобільних категорій, але залишаємо функціонал */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans" x-data="store()" x-init="initStore()">
+
+    <!-- Шапка (Header) в стилі великих маркетплейсів -->
+    <header class="bg-slate-900 text-white sticky top-0 z-40 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-3">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                
+                <!-- Логотип -->
+                <div class="flex-shrink-0 flex items-center gap-2 cursor-pointer" @click="selectedCategory = 'Всі'; searchQuery = ''">
+                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-xl">М+</div>
+                    <span class="text-2xl font-bold tracking-tight hidden sm:block" x-text="config.STORE_NAME"></span>
+                </div>
+
+                <!-- Рядок пошуку (займає максимум вільного місця) -->
+                <div class="flex-grow max-w-2xl order-3 w-full md:order-none md:w-auto">
+                    <div class="relative flex">
+                        <input x-model="searchQuery" type="text" placeholder="Я шукаю..." 
+                            class="w-full px-4 py-2.5 text-gray-900 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button class="bg-blue-600 px-6 py-2.5 rounded-r-lg font-medium hover:bg-blue-700 transition flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            <span class="hidden sm:inline">Знайти</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Контакти та Кошик -->
+                <div class="flex items-center gap-6 flex-shrink-0">
+                    <div class="hidden lg:block text-right">
+                        <div class="text-sm font-bold" x-text="config.CONTACT_PHONE"></div>
+                        <div class="text-xs text-gray-400" x-text="config.WORK_HOURS"></div>
+                    </div>
+                    
+                    <button @click="isCartOpen = true" class="relative flex flex-col items-center group">
+                        <div class="p-2 bg-slate-800 rounded-lg group-hover:bg-slate-700 transition relative">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                            <span x-show="cartTotalItems > 0" x-text="cartTotalItems" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-slate-900"></span>
+                        </div>
+                        <span class="text-xs mt-1 hidden sm:block">Кошик</span>
+                    </button>
+                </div>
+            </div>
         </div>
     </header>
 
-    <!-- Вітрина товарів -->
-    <main class="max-w-6xl mx-auto px-4 py-8">
-        <div x-show="isLoading" class="text-center py-10 text-gray-500">Завантаження товарів...</div>
+    <!-- Основний контент -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex flex-col md:flex-row gap-6">
         
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            <template x-for="product in products" :key="product.id">
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
-                    <img :src="product.image_url" :alt="product.name" class="w-full h-48 object-cover">
-                    <div class="p-5">
-                        <h2 class="text-lg font-bold mb-1" x-text="product.name"></h2>
-                        <p class="text-gray-500 text-sm mb-4 line-clamp-2" x-text="product.description"></p>
-                        <div class="flex justify-between items-center">
-                            <span class="text-xl font-extrabold text-gray-900"><span x-text="product.price"></span> ₴</span>
-                            <button @click="addToCart(product)" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
-                                В кошик
+        <!-- Сайдбар з категоріями (Бокове меню) -->
+        <aside class="w-full md:w-64 flex-shrink-0">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-24">
+                <div class="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-700">
+                    Каталог товарів
+                </div>
+                <!-- Горизонтальний скрол на мобільних, вертикальний список на ПК -->
+                <ul class="flex md:flex-col overflow-x-auto no-scrollbar p-2 gap-1">
+                    <template x-for="category in config.CATEGORIES" :key="category">
+                        <li>
+                            <button @click="selectedCategory = category" 
+                                :class="selectedCategory === category ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-600 hover:bg-gray-50'"
+                                class="w-full text-left px-4 py-2.5 rounded-lg whitespace-nowrap transition-colors text-sm">
+                                <span x-text="category"></span>
                             </button>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Вітрина товарів -->
+        <div class="flex-grow">
+            <!-- Хлібні крихти / Заголовок -->
+            <div class="mb-6 flex justify-between items-end">
+                <h1 class="text-2xl font-bold text-gray-900" x-text="selectedCategory === 'Всі' ? (searchQuery ? 'Результати пошуку' : 'Всі товари') : selectedCategory"></h1>
+                <span class="text-gray-500 text-sm" x-text="`Знайдено: ${filteredProducts.length}`"></span>
+            </div>
+
+            <div x-show="isLoading" class="flex justify-center py-20">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+            
+            <div x-show="!isLoading && filteredProducts.length === 0" class="bg-white p-10 rounded-xl text-center shadow-sm border border-gray-200">
+                <p class="text-gray-500 text-lg">За вашим запитом нічого не знайдено 😔</p>
+                <button @click="searchQuery = ''; selectedCategory = 'Всі'" class="mt-4 text-blue-600 hover:underline">Скинути фільтри</button>
+            </div>
+
+            <!-- Сітка карток -->
+            <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                <template x-for="product in filteredProducts" :key="product.id">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow flex flex-col group">
+                        <!-- Фото -->
+                        <div class="relative pt-[100%] bg-gray-50">
+                            <img :src="product.image_url" :alt="product.name" class="absolute top-0 left-0 w-full h-full object-contain p-4 mix-blend-multiply group-hover:scale-105 transition-transform duration-300">
+                        </div>
+                        <!-- Інфо -->
+                        <div class="p-4 flex flex-col flex-grow">
+                            <span class="text-xs text-gray-400 mb-1" x-text="product.category"></span>
+                            <h2 class="text-sm sm:text-base text-gray-800 hover:text-blue-600 cursor-pointer line-clamp-2 mb-2 flex-grow" x-text="product.name"></h2>
+                            
+                            <div class="mt-auto pt-4 flex items-center justify-between">
+                                <div class="text-lg sm:text-xl font-extrabold text-gray-900">
+                                    <span x-text="product.price"></span> <span class="text-sm font-normal" x-text="config.CURRENCY"></span>
+                                </div>
+                                <button @click="addToCart(product)" class="bg-blue-600 hover:bg-blue-700 text-white w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-sm" title="В кошик">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </template>
+                </template>
+            </div>
         </div>
     </main>
 
-    <!-- Модальне вікно кошика -->
+    <!-- Кошик (Модальне вікно залишається майже без змін, лише кольори кнопок) -->
+    <!-- ... (Код кошика з попереднього варіанту, але кнопки bg-blue-600) ... -->
     <div x-show="isCartOpen" style="display: none;" class="fixed inset-0 z-50 overflow-hidden" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
-        <div class="absolute inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="isCartOpen = false"></div>
+        <div class="absolute inset-0 bg-gray-900 bg-opacity-50 transition-opacity backdrop-blur-sm" @click="isCartOpen = false"></div>
         <div class="fixed inset-y-0 right-0 pl-10 max-w-full flex">
-            <div class="w-screen max-w-md bg-white shadow-xl flex flex-col">
+            <div class="w-screen max-w-md bg-white shadow-2xl flex flex-col">
                 <div class="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
-                    <div class="flex items-start justify-between">
-                        <h2 class="text-lg font-medium text-gray-900">Ваш кошик</h2>
-                        <button @click="isCartOpen = false" class="text-gray-400 hover:text-gray-500">✕</button>
+                    <div class="flex items-start justify-between border-b pb-4">
+                        <h2 class="text-xl font-bold text-gray-900">Кошик</h2>
+                        <button @click="isCartOpen = false" class="text-gray-400 hover:text-gray-800 transition">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
                     </div>
 
-                    <div class="mt-8">
-                        <div class="flow-root">
-                            <ul role="list" class="-my-6 divide-y divide-gray-200">
-                                <template x-for="item in cart" :key="item.id">
-                                    <li class="flex py-6">
-                                        <div class="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
-                                            <img :src="item.image_url" class="h-full w-full object-cover object-center">
-                                        </div>
-                                        <div class="ml-4 flex flex-1 flex-col">
-                                            <div>
-                                                <div class="flex justify-between text-base font-medium text-gray-900">
-                                                    <h3 x-text="item.name"></h3>
-                                                    <p class="ml-4"><span x-text="item.price * item.qty"></span> ₴</p>
-                                                </div>
-                                            </div>
-                                            <div class="flex flex-1 items-end justify-between text-sm">
-                                                <p class="text-gray-500">Кількість: <span x-text="item.qty"></span></p>
-                                                <button @click="removeFromCart(item.id)" type="button" class="font-medium text-red-600 hover:text-red-500">Видалити</button>
+                    <div class="mt-6">
+                        <ul role="list" class="-my-6 divide-y divide-gray-200">
+                            <template x-for="item in cart" :key="item.id">
+                                <li class="flex py-6">
+                                    <div class="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-gray-200 p-2">
+                                        <img :src="item.image_url" class="h-full w-full object-contain">
+                                    </div>
+                                    <div class="ml-4 flex flex-1 flex-col">
+                                        <div>
+                                            <div class="flex justify-between text-base font-medium text-gray-900">
+                                                <h3 class="line-clamp-2 text-sm" x-text="item.name"></h3>
+                                                <p class="ml-4 whitespace-nowrap font-bold"><span x-text="item.price * item.qty"></span> <span x-text="config.CURRENCY"></span></p>
                                             </div>
                                         </div>
-                                    </li>
-                                </template>
-                                <li x-show="cart.length === 0" class="py-6 text-center text-gray-500">Кошик порожній</li>
-                            </ul>
-                        </div>
+                                        <div class="flex flex-1 items-end justify-between text-sm mt-2">
+                                            <div class="flex items-center border rounded-lg">
+                                                <button @click="item.qty > 1 ? item.qty-- : removeFromCart(item.id)" class="px-3 py-1 hover:bg-gray-100">-</button>
+                                                <span class="px-3 py-1 border-x" x-text="item.qty"></span>
+                                                <button @click="item.qty++" class="px-3 py-1 hover:bg-gray-100">+</button>
+                                            </div>
+                                            <button @click="removeFromCart(item.id)" type="button" class="font-medium text-red-500 hover:text-red-700">Видалити</button>
+                                        </div>
+                                    </div>
+                                </li>
+                            </template>
+                            <li x-show="cart.length === 0" class="py-12 text-center text-gray-500">
+                                Ваш кошик порожній 🛒
+                            </li>
+                        </ul>
                     </div>
                 </div>
 
-                <!-- Оформлення замовлення -->
-                <div class="border-t border-gray-200 px-4 py-6 sm:px-6" x-show="cart.length > 0">
-                    <div class="flex justify-between text-lg font-medium text-gray-900 mb-4">
-                        <p>Разом до сплати</p>
-                        <p><span x-text="cartTotalPrice"></span> ₴</p>
+                <div class="border-t border-gray-200 px-4 py-6 sm:px-6 bg-gray-50" x-show="cart.length > 0">
+                    <div class="flex justify-between text-lg font-bold text-gray-900 mb-6">
+                        <p>Разом:</p>
+                        <p><span x-text="cartTotalPrice"></span> <span x-text="config.CURRENCY"></span></p>
                     </div>
                     
-                    <form @submit.prevent="checkout" class="space-y-3">
-                        <input x-model="customer.name" type="text" required placeholder="Ваше ім'я" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <input x-model="customer.phone" type="tel" required placeholder="Номер телефону" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <form @submit.prevent="checkout" class="space-y-4">
+                        <input x-model="customer.name" type="text" required placeholder="Ім'я та Прізвище" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <input x-model="customer.phone" type="tel" required placeholder="Телефон (+380...)" class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         
-                        <button type="submit" :disabled="isSubmitting" class="w-full flex justify-center items-center rounded-lg border border-transparent bg-indigo-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700 disabled:bg-gray-400">
-                            <span x-text="isSubmitting ? 'Відправка...' : 'Оформити замовлення'"></span>
+                        <button type="submit" :disabled="isSubmitting" class="w-full flex justify-center items-center rounded-lg bg-blue-600 px-6 py-4 text-base font-bold text-white shadow-md hover:bg-blue-700 disabled:bg-gray-400 transition-colors">
+                            <span x-text="isSubmitting ? 'Оформлюємо...' : 'Замовлення підтверджую'"></span>
                         </button>
                     </form>
                 </div>
@@ -110,24 +201,38 @@
 
     <!-- Логіка додатку -->
     <script>
-        const SUPABASE_URL = 'https://ixcvjmquidfydeakvzul.supabase.co/';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4Y3ZqbXF1aWRmeWRlYWt2enVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNjczMTMsImV4cCI6MjA5Mzc0MzMxM30.fF5NYxpS21pxbDxKHpebKCb79HVBsKP3s3DsKpF6Hnk';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Ініціалізація Supabase з конфігу
+        const supabaseClient = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
 
         document.addEventListener('alpine:init', () => {
             Alpine.data('store', () => ({
+                config: CONFIG,
                 products: [],
                 cart:[],
                 isCartOpen: false,
                 isLoading: true,
                 isSubmitting: false,
+                
+                // Фільтрація
+                searchQuery: '',
+                selectedCategory: 'Всі',
+                
                 customer: { name: '', phone: '' },
 
                 async initStore() {
-                    // Завантаження товарів з Supabase
                     const { data, error } = await supabaseClient.from('products').select('*');
                     if (data) this.products = data;
                     this.isLoading = false;
+                },
+
+                // Геттер для фільтрації товарів (Пошук + Категорія)
+                get filteredProducts() {
+                    return this.products.filter(p => {
+                        const matchesSearch = p.name.toLowerCase().includes(this.searchQuery.toLowerCase()) || 
+                                              (p.description && p.description.toLowerCase().includes(this.searchQuery.toLowerCase()));
+                        const matchesCategory = this.selectedCategory === 'Всі' || p.category === this.selectedCategory;
+                        return matchesSearch && matchesCategory;
+                    });
                 },
 
                 addToCart(product) {
@@ -137,6 +242,7 @@
                     } else {
                         this.cart.push({ ...product, qty: 1 });
                     }
+                    // Анімація або повідомлення (опціонально)
                 },
 
                 removeFromCart(id) {
@@ -154,7 +260,6 @@
                 async checkout() {
                     this.isSubmitting = true;
                     
-                    // Збереження замовлення в Supabase
                     const { error } = await supabaseClient.from('orders').insert([{
                         customer_name: this.customer.name,
                         customer_phone: this.customer.phone,
@@ -165,10 +270,10 @@
                     this.isSubmitting = false;
 
                     if (error) {
-                        alert('Виникла помилка при оформленні. Спробуйте ще раз.');
+                        alert('Виникла помилка при оформленні. Перевірте підключення.');
                         console.error(error);
                     } else {
-                        alert('Дякуємо за замовлення! Наш менеджер скоро зв\'яжеться з вами.');
+                        alert(`Дякуємо за замовлення, ${this.customer.name}! Ми скоро зателефонуємо.`);
                         this.cart =[];
                         this.customer = { name: '', phone: '' };
                         this.isCartOpen = false;
